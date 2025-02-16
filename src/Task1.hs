@@ -22,7 +22,11 @@ data Order = PreOrder | InOrder | PostOrder
 
 -- * Function definitions
 
--- | Returns values of given 'Tree' in specified 'Order' with optional leaf value
+maybeToList :: Maybe a -> [a]
+maybeToList (Just x) = [x]
+maybeToList Nothing = []
+
+-- Returns values of given 'Tree' in specified 'Order' with optional leaf value
 --
 -- Usage example:
 --
@@ -37,7 +41,11 @@ torder :: Order    -- ^ Order of resulting traversal
        -> Maybe a  -- ^ Optional leaf value
        -> Tree a   -- ^ Tree to traverse
        -> [a]      -- ^ List of values in specified order
-torder = error "TODO: define torder"
+torder PreOrder leafValue (Branch v l r) = [v] ++ torder PreOrder leafValue l ++ torder PreOrder leafValue r
+torder InOrder leafValue (Branch v l r) = torder InOrder leafValue l ++ [v] ++ torder InOrder leafValue r
+torder PostOrder leafValue (Branch v l r) = torder PostOrder leafValue l ++ torder PostOrder leafValue r ++ [v]
+torder _ leafValue Leaf = maybeToList leafValue
+
 
 -- | Returns values of given 'Forest' separated by optional separator
 -- where each 'Tree' is traversed in specified 'Order' with optional leaf value
@@ -56,5 +64,13 @@ forder :: Order     -- ^ Order of tree traversal
        -> Maybe a   -- ^ Optional leaf value
        -> Forest a  -- ^ List of trees to traverse
        -> [a]       -- ^ List of values in specified tree order
-forder = error "TODO: define forder"
+forder order delimiter leafValue forest = intercalate (maybeToList delimiter) (map (torder order leafValue) forest)
+
+
+intercalate :: [a] -> [[a]] -> [a]
+intercalate _ [] = []
+intercalate sep (x:xs) = x ++ intercalate' sep xs
+  where intercalate' :: [a] -> [[a]] -> [a]
+        intercalate' _ [] = []
+        intercalate' s (y:ys) = s ++ y ++ intercalate' s ys
 
