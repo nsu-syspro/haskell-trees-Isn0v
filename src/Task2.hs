@@ -1,19 +1,21 @@
+{-# LANGUAGE InstanceSigs #-}
 {-# OPTIONS_GHC -Wall #-}
+
 -- The above pragma enables all warnings
 
 module Task2 where
 
 -- Explicit import of Prelude to hide functions
 -- that are not supposed to be used in this assignment
-import Prelude hiding (compare, foldl, foldr, Ordering(..))
 
-import Task1 (Tree(..))
+import Task1 (Tree (..))
+import Prelude hiding (Ordering (..), compare, foldl, foldr)
 
 -- * Type definitions
 
 -- | Ordering enumeration
 data Ordering = LT | EQ | GT
-  deriving Show
+  deriving (Show)
 
 -- | Binary comparison function indicating whether first argument is less, equal or
 -- greater than the second one (returning 'LT', 'EQ' or 'GT' respectively)
@@ -31,9 +33,21 @@ type Cmp a = a -> a -> Ordering
 -- EQ
 -- >>> compare "Haskell" "C++"
 -- GT
---
-compare :: Ord a => Cmp a
-compare = error "TODO: define compare"
+compare :: (Ord a) => Cmp a
+compare a b
+  | a < b = LT
+  | a > b = GT
+  | otherwise = EQ
+
+isLT :: Cmp a -> a -> a -> Bool
+isLT cmp a b = case cmp a b of
+  LT -> True
+  _ -> False
+
+isGT :: Cmp a -> a -> a -> Bool
+isGT cmp a b = case cmp a b of
+  GT -> True
+  _ -> False
 
 -- | Conversion of list to binary search tree
 -- using given comparison function
@@ -44,9 +58,9 @@ compare = error "TODO: define compare"
 -- Branch 2 (Branch 1 Leaf Leaf) (Branch 3 Leaf Leaf)
 -- >>> listToBST compare ""
 -- Leaf
---
 listToBST :: Cmp a -> [a] -> Tree a
-listToBST = error "TODO: define listToBST"
+listToBST cmp (x:xs) = tinsert cmp x (listToBST cmp xs)
+listToBST _ [] = Leaf
 
 -- | Conversion from binary search tree to list
 --
@@ -60,9 +74,9 @@ listToBST = error "TODO: define listToBST"
 -- [1,2,3]
 -- >>> bstToList Leaf
 -- []
---
 bstToList :: Tree a -> [a]
-bstToList = error "TODO: define bstToList"
+bstToList (Branch k l r) = bstToList l ++ [k] ++ bstToList r
+bstToList Leaf = []
 
 -- | Tests whether given tree is a valid binary search tree
 -- with respect to given comparison function
@@ -75,9 +89,14 @@ bstToList = error "TODO: define bstToList"
 -- True
 -- >>> isBST compare (Branch 5 (Branch 1 Leaf Leaf) (Branch 3 Leaf Leaf))
 -- False
---
 isBST :: Cmp a -> Tree a -> Bool
-isBST = error "TODO: define isBST"
+isBST cmp tree = isBSTHelper cmp tree Nothing Nothing
+  where
+    isBSTHelper :: Cmp a -> Tree a -> Maybe a -> Maybe a -> Bool
+    isBSTHelper _ Leaf _ _ = True
+    isBSTHelper cmp' (Branch k l r) minVal maxVal = withinBounds && isBSTHelper cmp' l minVal (Just k) && isBSTHelper cmp' r (Just k) maxVal
+      where
+        withinBounds = maybe True (isGT cmp' k) minVal && maybe True (isLT cmp' k) maxVal
 
 -- | Searches given binary search tree for
 -- given value with respect to given comparison
@@ -93,9 +112,13 @@ isBST = error "TODO: define isBST"
 -- Nothing
 -- >>> tlookup (\x y -> compare (x `mod` 3) (y `mod` 3)) 5 (Branch 2 (Branch 0 Leaf Leaf) (Branch 2 Leaf Leaf))
 -- Just 2
---
 tlookup :: Cmp a -> a -> Tree a -> Maybe a
-tlookup = error "TODO: define tlookup"
+tlookup _ _ Leaf = Nothing
+tlookup cmp value (Branch k l r) =
+  case cmp value k of
+    EQ -> Just k
+    LT -> tlookup cmp value l
+    GT -> tlookup cmp value r
 
 -- | Inserts given value into given binary search tree
 -- preserving its BST properties with respect to given comparison
@@ -111,9 +134,13 @@ tlookup = error "TODO: define tlookup"
 -- Branch 2 (Branch 1 Leaf Leaf) (Branch 3 Leaf Leaf)
 -- >>> tinsert compare 'a' Leaf
 -- Branch 'a' Leaf Leaf
---
 tinsert :: Cmp a -> a -> Tree a -> Tree a
-tinsert = error "TODO: define tinsert"
+tinsert _ value Leaf = Branch value Leaf Leaf
+tinsert cmp value (Branch k l r) =
+  case cmp value k of
+    EQ -> Branch value l r
+    LT -> Branch k (tinsert cmp value l) r
+    GT -> Branch k l (tinsert cmp value r)
 
 -- | Deletes given value from given binary search tree
 -- preserving its BST properties with respect to given comparison
@@ -127,6 +154,21 @@ tinsert = error "TODO: define tinsert"
 -- Branch 2 Leaf (Branch 3 Leaf Leaf)
 -- >>> tdelete compare 'a' Leaf
 -- Leaf
---
 tdelete :: Cmp a -> a -> Tree a -> Tree a
-tdelete = error "TODO: define tdelete"
+tdelete _ _ Leaf = Leaf
+tdelete cmp value (Branch k l r) =
+  case cmp value k of
+    EQ -> deleteNode cmp (Branch k l r)
+    LT -> Branch k (tdelete cmp value l) r
+    GT -> Branch k l (tdelete cmp value r)
+
+findMin :: Tree a -> a
+findMin Leaf = error "Cannot find min in empty tree"
+findMin (Branch k Leaf _) = k
+findMin (Branch _ l _) = findMin l
+
+deleteNode :: Cmp a -> Tree a -> Tree a
+deleteNode _ Leaf = Leaf
+deleteNode _ (Branch _ l Leaf) = l
+deleteNode _ (Branch _ Leaf r) = r
+deleteNode cmp (Branch _ l r) = Branch (findMin r) l (tdelete cmp (findMin r) r)
